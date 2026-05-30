@@ -110,26 +110,42 @@ def verificar():
                         "uf": via.get('uf'), "cobertura": False,
                         "motivo": "Nao foi possivel localizar as coordenadas."})
 
+    logradouro = via.get('logradouro', '')
+    bairro     = via.get('bairro', '')
+    cidade     = via.get('localidade', '')
+    uf         = via.get('uf', '')
+    endereco_completo = f"{logradouro}, {bairro}, {cidade} - {uf}".strip(', ')
+
     feature = find_coverage(lng, lat)
 
     if not feature:
-        return jsonify({"pode_vender": False, "cobertura": False,
-                        "resposta": "NAO PODE VENDER - Fora da area de cobertura.",
-                        "motivo": "Endereco fora da area de cobertura.",
-                        "cep": via.get('cep'), "municipio": via.get('localidade'),
-                        "uf": via.get('uf'), "coordenadas": coords})
+        return jsonify({
+            "pode_vender": False,
+            "cobertura": False,
+            "endereco": endereco_completo,
+            "cep": via.get('cep'),
+            "resposta": f"NAO - A rua {logradouro}, {bairro}, {cidade} ainda nao tem cobertura de fibra.",
+            "coordenadas": coords
+        })
 
     status = feature.get('s', '')
-    municipio = feature.get('m') or via.get('localidade')
+    municipio = feature.get('m') or cidade
     estacao = feature.get('e', '')
     pode_vender = 'sem restri' in status.lower()
-    resposta = f"PODE VENDER - {municipio}, Estacao {estacao}" if pode_vender else f"NAO PODE VENDER - Restricao em {municipio}, Estacao {estacao}"
 
-    return jsonify({"pode_vender": pode_vender, "resposta": resposta, "cobertura": True,
-                    "status_venda": status, "municipio": municipio, "estacao": estacao,
-                    "cep": via.get('cep'), "ocupacao": feature.get('o'),
-                    "hc": feature.get('hc'), "hp": feature.get('hp'),
-                    "coordenadas": coords})
+    if pode_vender:
+        resposta = f"SIM - A rua {logradouro}, {bairro}, {cidade} tem cobertura disponivel. Pode instalar."
+    else:
+        resposta = f"NAO - A rua {logradouro}, {bairro}, {cidade} esta com restricao de vendas."
+
+    return jsonify({
+        "pode_vender": pode_vender,
+        "cobertura": True,
+        "endereco": endereco_completo,
+        "cep": via.get('cep'),
+        "resposta": resposta,
+        "coordenadas": coords
+    })
 
 
 @app.route('/health')
