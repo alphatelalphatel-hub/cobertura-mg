@@ -1,0 +1,7 @@
+version: '3.8'
+services:
+  cobertura-mg:
+    build: .
+    ports:
+      - "5000:5000"
+    restart: always
