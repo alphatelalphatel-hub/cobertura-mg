@@ -64,6 +64,15 @@ for fname in KML_FILES:
         if len(coords) < 3:
             continue
 
+        kml_color = ""
+        style = pm.find(NS + "Style")
+        if style is not None:
+            ps = style.find(NS + "PolyStyle")
+            if ps is not None:
+                ce = ps.find(NS + "color")
+                if ce is not None:
+                    kml_color = ce.text.strip()
+
         all_features.append({
             "n": name,
             "s": field(desc, "Status Venda Célula: "),
@@ -73,6 +82,8 @@ for fname in KML_FILES:
             "hp": field(desc, "HP: "),
             "o": field(desc, "Ocup (%): "),
             "cl": field(desc, "Cluster Célula: "),
+            "at": field(desc, "Atingimento/Meta (%): "),
+            "kc": kml_color,
             "coords": coords,
         })
         count += 1

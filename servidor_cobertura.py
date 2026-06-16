@@ -18,17 +18,32 @@ for feat in raw:
     lats = [p[1] for p in feat['coords']]
     cobertura.append({**feat, 'bb': (min(lngs), min(lats), max(lngs), max(lats))})
 
+# Mapeamento cor KML (AABBGGRR) → cor web + significado
+KML_COR = {
+    '99000000': {'hex': '#4A5568', 'label': 'Bloqueado',        'pode': False, 'desc': 'Não pode vender'},
+    '990000FF': {'hex': '#E53E3E', 'label': 'Performance baixa','pode': True,  'desc': 'Pode vender — atingimento abaixo de 30%'},
+    '9900FFFF': {'hex': '#D69E2E', 'label': 'Performance média','pode': True,  'desc': 'Pode vender — atingimento entre 30% e 55%'},
+    '99008000': {'hex': '#38A169', 'label': 'Performance boa',  'pode': True,  'desc': 'Pode vender — atingimento entre 55% e 100%'},
+    '99FF0000': {'hex': '#3182CE', 'label': 'Meta batida',      'pode': True,  'desc': 'Pode vender — meta superada (acima de 100%)'},
+}
+COR_PADRAO = {'hex': '#718096', 'label': 'Sem info', 'pode': False, 'desc': ''}
+
+def cor_da_feature(feat):
+    return KML_COR.get(feat.get('kc', ''), COR_PADRAO)
+
 # Pré-processa dados para o mapa (inverte lng/lat para lat/lng do Leaflet)
 print("Preparando dados do mapa...")
 mapa_features = []
 for feat in cobertura:
-    status = feat.get('s', '')
-    color = '#38A169' if 'sem restri' in status.lower() else '#DD6B20' if status else '#4A5568'
+    cor = cor_da_feature(feat)
     mapa_features.append({
         'n': feat.get('n', ''), 's': feat.get('s', ''), 'm': feat.get('m', ''),
         'e': feat.get('e', ''), 'o': feat.get('o', ''),
         'hc': feat.get('hc', ''), 'hp': feat.get('hp', ''),
-        'c': color,
+        'at': feat.get('at', ''),
+        'cl': feat.get('cl', ''),
+        'lbl': cor['label'],
+        'c': cor['hex'],
         'coords': [[p[1], p[0]] for p in feat['coords']]
     })
 
@@ -132,6 +147,7 @@ def verificar():
     municipio = feature.get('m') or cidade
     estacao = feature.get('e', '')
     pode_vender = 'sem restri' in status.lower()
+    cor = cor_da_feature(feature)
 
     if pode_vender:
         resposta = f"SIM - A rua {logradouro}, {bairro}, {cidade} tem cobertura disponivel. Pode instalar."
@@ -144,7 +160,17 @@ def verificar():
         "endereco": endereco_completo,
         "cep": via.get('cep'),
         "resposta": resposta,
-        "coordenadas": coords
+        "coordenadas": coords,
+        "performance": cor['label'],
+        "performance_desc": cor['desc'],
+        "cor_hex": cor['hex'],
+        "atingimento": feature.get('at', ''),
+        "cluster": feature.get('cl', ''),
+        "municipio": municipio,
+        "estacao": estacao,
+        "hc": feature.get('hc', ''),
+        "hp": feature.get('hp', ''),
+        "ocupacao": feature.get('o', ''),
     })
 
 
@@ -205,8 +231,11 @@ button:disabled{background:#4a5568;cursor:not-allowed}
   <div id="result"></div>
   <div class="legend" style="margin-top:20px">
     <h3>Legenda</h3>
-    <div class="li"><div class="lc" style="background:#38A169;opacity:.8"></div>Pode instalar</div>
-    <div class="li"><div class="lc" style="background:#DD6B20;opacity:.8"></div>Restricao de vendas</div>
+    <div class="li"><div class="lc" style="background:#3182CE"></div><span><b style="color:#e2e8f0">Meta batida</b> — Atingimento &gt;100%</span></div>
+    <div class="li"><div class="lc" style="background:#38A169"></div><span><b style="color:#e2e8f0">Performance boa</b> — 55% a 100%</span></div>
+    <div class="li"><div class="lc" style="background:#D69E2E"></div><span><b style="color:#e2e8f0">Performance média</b> — 30% a 55%</span></div>
+    <div class="li"><div class="lc" style="background:#E53E3E"></div><span><b style="color:#e2e8f0">Performance baixa</b> — abaixo de 30%</span></div>
+    <div class="li"><div class="lc" style="background:#4A5568"></div><span><b style="color:#e2e8f0">Bloqueado</b> — Não pode vender</span></div>
   </div>
 </div>
 <div id="map"></div>
@@ -239,9 +268,10 @@ fetch('/mapa-data')
       })
       .bindPopup(
         '<b>'+f.n+'</b><br>'+f.m+'<br>Estacao: '+f.e+
-        '<br>Status: '+f.s+'<br>HC: '+f.hc+' / HP: '+f.hp+
-        '<br>Ocupacao: '+f.o,
-        {maxWidth: 220}
+        '<br><span style="color:'+f.c+';font-weight:700">'+f.lbl+'</span>'+
+        '<br>Atingimento: '+f.at+'<br>Cluster: '+f.cl+
+        '<br>HC: '+f.hc+' / HP: '+f.hp+'<br>Ocup: '+f.o,
+        {maxWidth: 240}
       )
       .addTo(map);
     });
@@ -266,20 +296,21 @@ async function buscar(){
     }
     if(d.pode_vender===true){
       res.className='result ok';
-      res.innerHTML='<div class="rtitle">PODE INSTALAR</div>'+
-        row('Municipio',d.municipio)+row('Estacao',d.estacao)+
-        row('Status',d.status_venda)+row('HC / HP',d.hc+' / '+d.hp)+
-        row('Ocupacao',d.ocupacao);
+      res.innerHTML='<div class="rtitle">✔ PODE INSTALAR</div>'+
+        badge(d.cor_hex, d.performance, d.performance_desc)+
+        row('Município',d.municipio)+row('Estação',d.estacao)+
+        row('Atingimento',d.atingimento)+row('Cluster',d.cluster)+
+        row('HC / HP',d.hc+' / '+d.hp)+row('Ocupação',d.ocupacao);
     } else if(d.cobertura===false){
       res.className='result no';
-      res.innerHTML='<div class="rtitle">SEM COBERTURA</div>'+
-        row('Municipio',d.municipio)+row('UF',d.uf)+
-        '<div style="font-size:11px;color:#fc8181;margin-top:6px">'+(d.motivo||'')+'</div>';
+      res.innerHTML='<div class="rtitle">✖ SEM COBERTURA</div>'+
+        '<div style="font-size:11px;color:#fc8181;margin-top:4px">Esta rua ainda não tem cobertura de fibra.</div>'+
+        row('Endereço',d.endereco);
     } else {
       res.className='result warn';
-      res.innerHTML='<div class="rtitle">RESTRICAO DE VENDAS</div>'+
-        row('Municipio',d.municipio)+row('Estacao',d.estacao)+
-        row('Status',d.status_venda);
+      res.innerHTML='<div class="rtitle">⚠ RESTRIÇÃO DE VENDAS</div>'+
+        badge('#4A5568','Bloqueado','Não pode vender no momento')+
+        row('Município',d.municipio)+row('Estação',d.estacao);
     }
     res.style.display='block';
   }catch(e){
@@ -293,6 +324,12 @@ async function buscar(){
 
 function row(l,v){
   return '<div class="row"><span>'+l+'</span><span>'+(v||'-')+'</span></div>';
+}
+function badge(cor,label,desc){
+  return '<div style="display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.25);border-radius:7px;padding:7px 10px;margin-bottom:10px">'+
+    '<div style="width:14px;height:14px;border-radius:3px;background:'+cor+';flex-shrink:0"></div>'+
+    '<div><div style="font-weight:700;font-size:12px;color:'+cor+'">'+label+'</div>'+
+    '<div style="font-size:10px;color:#a0aec0">'+desc+'</div></div></div>';
 }
 </script>
 </body>
