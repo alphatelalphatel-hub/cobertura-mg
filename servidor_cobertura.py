@@ -160,7 +160,7 @@ def index():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cobertura Fibra MG</title>
+<title>Cobertura Fibra MG · ES · RJ · SP</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -197,7 +197,7 @@ button:disabled{background:#4a5568;cursor:not-allowed}
 </head>
 <body>
 <div id="panel">
-  <h1>Cobertura Fibra MG</h1>
+  <h1>Cobertura Fibra MG · ES · RJ · SP</h1>
   <p class="sub" id="subtotal">Carregando regioes...</p>
   <label>CEP do cliente</label>
   <input type="text" id="cep" placeholder="00000-000" maxlength="9" inputmode="numeric">
@@ -213,7 +213,7 @@ button:disabled{background:#4a5568;cursor:not-allowed}
 <div id="overlay"><span class="spinner"></span> Carregando regioes de cobertura...</div>
 
 <script>
-const map = L.map('map', {preferCanvas: true}).setView([-19.5, -44.5], 7);
+const map = L.map('map', {preferCanvas: true}).setView([-21.0, -44.0], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap', maxZoom: 19
 }).addTo(map);
